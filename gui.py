@@ -78,8 +78,11 @@ def recortarImagem():
             cv2.imshow("image", oriImage)
         cv2.waitKey(1)
     cv2.destroyWindow("image")
-# Criação de componentes
 
+def correlacionarImagem():
+    print("aaaa")
+
+# Criação de componentes
 titulo = tk.Label(
     text="Trabalho de PI",
     height=2,
