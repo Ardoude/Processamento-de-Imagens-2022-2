@@ -1,6 +1,7 @@
-from tkinter import filedialog
+# Eduardo Pereira Costa - 650503
+# Rafael Maia - 635921
 
-grayImg = None
+from tkinter import filedialog
 
 # Abre o explorador de arquivos em busca da imagem
 def browseFiles():
