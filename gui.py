@@ -96,7 +96,7 @@ def recortarImagem():
         cv2.waitKey(1)
     cv2.destroyWindow("recortar")
 
-# Causando erro
+# Causando erro resolver
 def correlacionarImagem():
     im1 = cv2.imread("recorte.png")
     im2 = cv2.imread(filename)
