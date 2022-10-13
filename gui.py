@@ -1,3 +1,7 @@
+# Eduardo Pereira Costa - 650503
+# Rafael Maia - 635921
+
+
 from pickle import FALSE, TRUE
 import utils
 import tkinter as tk
@@ -5,6 +9,9 @@ from tkinter import ACTIVE, DISABLED
 from tkinter.filedialog import askdirectory
 from PIL import ImageTk, Image
 import cv2
+import numpy as np
+from skimage.feature import match_template
+from matplotlib import pyplot as plt
 
 # Constantes
 btnHeight = 1  # Altura padrão dos botões
@@ -12,11 +19,10 @@ btnWidth = 20  # Largura padrão dos botões
 imgSelecionada = None # Imagem a ser classificada
 filename = "" # Caminho da imagem selecionada
 dirPath = "" # Diretorio com a base a ser treinada
-oriImage = None
-cropping = False
-cropped = False
-pathImagemRecortada = ""
-x_start, y_start, x_end, y_end = 0, 0, 0, 0
+imagemARecortar = None # Imagem a ser recortada (Cópia)
+cropping = False # Imagem sendo recortada
+cropped = False # Imagem foi recortada
+x_start, y_start, x_end, y_end = 0, 0, 0, 0 # Coordenadas de recorte da imagem
 
 # Configuração da tela
 janela = tk.Tk(className= ' Trabalho Prático - Processamento de Imagens')
@@ -25,21 +31,27 @@ janela.geometry("350x500")
 
 # Métodos utilitários
 
+# Atualiza a imagem a ser exibida
 def atualizaImagem(path):
-    global imgSelecionada
+    global imgSelecionada, filename
     imgSelecionada = ImageTk.PhotoImage( Image.open(path).resize( (255, 255), resample=3) )
     labelImagem.config(image = imgSelecionada, height=255, width=255)
     labelImagem.img = imgSelecionada
+    filename = path
 
-# Carrega imagem e a exibe na tela
+# Carrega uma imagem por um endereço e a exibe na tela
 def carregarImagem():
     global filename, imgSelecionada
     filename = utils.browseFiles()
     if filename!="":
         atualizaImagem(filename)
+        btnRecortarImagem.config(state=ACTIVE)
+        btnCorrelacionarImagem.config(state=ACTIVE)
 
+# Obtem as coordenadas de corte com base nos cliques do mouse
 def recorte(event, x, y, flags, param):
-    global x_start, y_start, x_end, y_end, cropping, pathImagemRecortada, cropped, i
+    global x_start, y_start, x_end, y_end, cropping, cropped, i
+    # Clique do mouse
     if event == cv2.EVENT_LBUTTONDOWN:
         x_start, y_start, x_end, y_end = x, y, x, y
         cropping = True
@@ -52,35 +64,52 @@ def recorte(event, x, y, flags, param):
         # Gravar coordenadas
         x_end, y_end = x, y
         cropping = False # Finalizou o recorte
-        refPoint = [(x_start, y_start), (x_end, y_end)]
-        if len(refPoint) == 2: # Dois pontos encontrados
-            roi = oriImage[refPoint[0][1]:refPoint[1][1], refPoint[0][0]:refPoint[1][0]]
-            cv2.imwrite("cropped.png", roi)
+        pontoDeReferencia = [(x_start, y_start), (x_end, y_end)]
+        if len(pontoDeReferencia) == 2: # Dois pontos encontrados
+            regiaoDeInteresse = imagemARecortar[pontoDeReferencia[0][1]:pontoDeReferencia[1][1], pontoDeReferencia[0][0]:pontoDeReferencia[1][0]]
+            cv2.imwrite("recorte.png", regiaoDeInteresse)
             cropped = True # Recorte já foi finalizado
-            # cv2.destroyAllWindows() # Fecha a janela de recorte
-            # cv2.destroyWindow("image")
-            atualizaImagem("cropped.png")
+            atualizaImagem("recorte.png")
 
+# Abre uma janeça para recortar uma região da imagem
 def recortarImagem():
-    global oriImage, cropped
+    global imagemARecortar, cropped
+    janelaAberta = True
     cropped = False
     if imgSelecionada == None:
         print("Erro")
         return
-    cv2.namedWindow("image")
-    cv2.setMouseCallback("image", recorte)
-    while not cropped:
-        oriImage = cv2.imread(filename).copy()
-        if not cropping:
-            cv2.imshow("image", oriImage)
-        elif cropping:
-            cv2.rectangle(oriImage, (x_start, y_start), (x_end, y_end), (255, 0, 0), 2)
-            cv2.imshow("image", oriImage)
-        cv2.waitKey(1)
-    cv2.destroyWindow("image")
+    cv2.namedWindow("recortar", cv2.WINDOW_NORMAL)
+    cv2.setMouseCallback("recortar", recorte)
+    while not cropped and janelaAberta:
+        imagemARecortar = cv2.imread(filename).copy()
 
+        # Finalizar se a janela for fechada sem que um recorte tenha sido feito
+        if cv2.getWindowProperty("recortar", 0) < 0:
+            janelaAberta = False
+
+        if not cropping:
+            cv2.imshow("recortar", imagemARecortar)
+        elif cropping:
+            cv2.rectangle(imagemARecortar, (x_start, y_start), (x_end, y_end), (255, 0, 0), 2)
+            cv2.imshow("recortar", imagemARecortar)
+        cv2.waitKey(1)
+    cv2.destroyWindow("recortar")
+
+# Causando erro
 def correlacionarImagem():
-    print("aaaa")
+    im1 = cv2.imread("recorte.png")
+    im2 = cv2.imread(filename)
+    
+    result = match_template(im2, im1, cv2.TM_CCOEFF)
+    (tH, tW) = im2.shape[:2]
+    (_, maxVal, _, maxLoc) = cv2.minMaxLoc(result)
+    (startX, startY) = (int(maxLoc[0]), int(maxLoc[1]))
+    (endX, endY) = (int(maxLoc[0]+tW), int(maxLoc[1]+tH))
+    cv2.rectangle(im1, (startX, startY), (endX, endY), (255,0,0), 2)
+    cv2.namedWindow("aaa", cv2.WINDOW_NORMAL)
+    cv2.imshow("aaa", im1)
+    cv2.waitKey(0)
 
 # Criação de componentes
 titulo = tk.Label(
@@ -98,14 +127,15 @@ btnRecortarImagem = tk.Button(
     text="Recortar Imagem",
     height= btnHeight,
     width= btnWidth,
-    state= ACTIVE,
+    state= DISABLED,
     command= recortarImagem
 )
 btnCorrelacionarImagem = tk.Button(
     text="Correlacionar Imagem",
     height= btnHeight,
     width= btnWidth,
-    state= ACTIVE
+    state= DISABLED,
+    command= correlacionarImagem
 )
 labelImagem = tk.Label(
     image=imgSelecionada,
