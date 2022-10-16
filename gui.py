@@ -1,7 +1,6 @@
 # Eduardo Pereira Costa - 650503
 # Rafael Maia - 635921
 
-
 from pickle import FALSE, TRUE
 import utils
 import tkinter as tk
@@ -28,7 +27,6 @@ x_start, y_start, x_end, y_end = 0, 0, 0, 0 # Coordenadas de recorte da imagem
 janela = tk.Tk(className= ' Trabalho Prático - Processamento de Imagens')
 janela.geometry("350x500")
     
-
 # Métodos utilitários
 
 # Atualiza a imagem a ser exibida
@@ -71,7 +69,7 @@ def recorte(event, x, y, flags, param):
             cropped = True # Recorte já foi finalizado
             atualizaImagem("recorte.png")
 
-# Abre uma janeça para recortar uma região da imagem
+# Abre uma janela para recortar uma região da imagem
 def recortarImagem():
     global imagemARecortar, cropped
     janelaAberta = True
@@ -113,7 +111,7 @@ def correlacionarImagem():
 
 # Criação de componentes
 titulo = tk.Label(
-    text="Trabalho de PI",
+    text="Trabalho de PID",
     height=2,
     width=10
 )
