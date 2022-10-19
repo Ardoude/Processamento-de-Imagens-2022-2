@@ -94,26 +94,26 @@ def recortarImagem():
         cv2.waitKey(1)
     cv2.destroyWindow("recortar")
 
-# Causando erro resolver
+#Correlacionando a Imagem
 def correlacionarImagem():
     im1 = cv2.imread("recorte.png")
     im2 = cv2.imread(filename)
     
-    result = match_template(im2, im1, cv2.TM_CCOEFF)
+    result = cv2.matchTemplate(im2, im1, cv2.TM_CCOEFF)
     (tH, tW) = im2.shape[:2]
-    (_, maxVal, _, maxLoc) = cv2.minMaxLoc(result)
+    _, maxVal, _, maxLoc = cv2.minMaxLoc(result)
     (startX, startY) = (int(maxLoc[0]), int(maxLoc[1]))
     (endX, endY) = (int(maxLoc[0]+tW), int(maxLoc[1]+tH))
-    cv2.rectangle(im1, (startX, startY), (endX, endY), (255,0,0), 2)
-    cv2.namedWindow("aaa", cv2.WINDOW_NORMAL)
-    cv2.imshow("aaa", im1)
+    cv2.rectangle(im2, (startX, startY), (endX, endY), (255,0,0), 2)
+    cv2.namedWindow("correlacao", cv2.WINDOW_NORMAL)
+    cv2.imshow("correlacao", im2)
     cv2.waitKey(0)
 
 # Criação de componentes
 titulo = tk.Label(
     text="Trabalho de PID",
     height=2,
-    width=10
+    width=15
 )
 btnAbrirImagem = tk.Button(
     text="Abrir Imagem",
