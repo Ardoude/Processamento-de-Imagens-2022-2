@@ -2,6 +2,7 @@
 # Rafael Maia - 635921
 
 from pickle import FALSE, TRUE
+from re import X
 import utils
 import tkinter as tk
 from tkinter import ACTIVE, DISABLED
@@ -75,7 +76,7 @@ def recortarImagem():
     janelaAberta = True
     cropped = False
     if imgSelecionada == None:
-        print("Erro")
+        print("Sem imagem selecionada")
         return
     cv2.namedWindow("recortar", cv2.WINDOW_NORMAL)
     cv2.setMouseCallback("recortar", recorte)
@@ -96,24 +97,26 @@ def recortarImagem():
 
 #Correlacionando a Imagem
 def correlacionarImagem():
-    im1 = cv2.imread("recorte.png")
-    im2 = cv2.imread(filename)
+    imgRecorte = cv2.imread("recorte.png")
+    imgReferencia = cv2.imread(filename)
     
-    result = cv2.matchTemplate(im2, im1, cv2.TM_CCOEFF)
-    (tH, tW) = im2.shape[:2]
+    result = cv2.matchTemplate(imgReferencia, imgRecorte, cv2.TM_CCOEFF)
+    (tH, tW) = imgRecorte.shape[:2] # Tamanho da imagem de recorte
     _, maxVal, _, maxLoc = cv2.minMaxLoc(result)
-    (startX, startY) = (int(maxLoc[0]), int(maxLoc[1]))
-    (endX, endY) = (int(maxLoc[0]+tW), int(maxLoc[1]+tH))
-    cv2.rectangle(im2, (startX, startY), (endX, endY), (255,0,0), 2)
+    (startX, startY) = (int(maxLoc[0]), int(maxLoc[1])) 
+    (endX, endY) = (int(maxLoc[0]+tW), int(maxLoc[1]+tH)) 
+    cv2.rectangle(imgReferencia, (startX, startY), (endX, endY), (255,0,0), 2) # Desenhar retângulo onde a imagem se encaixa
+
+    # Exibir resultados
     cv2.namedWindow("correlacao", cv2.WINDOW_NORMAL)
-    cv2.imshow("correlacao", im2)
+    cv2.imshow("correlacao", imgReferencia)
     cv2.waitKey(0)
 
 # Criação de componentes
 titulo = tk.Label(
-    text="Trabalho de PID",
+    text="Diagnóstico de Osteoartrite Femorotibial",
     height=2,
-    width=15
+    width=50
 )
 btnAbrirImagem = tk.Button(
     text="Abrir Imagem",
