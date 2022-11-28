@@ -4,6 +4,7 @@
 from pickle import FALSE, TRUE
 from re import X
 import utils
+import pandas as pd
 import tkinter as tk
 from tkinter import ACTIVE, DISABLED
 from tkinter.filedialog import askdirectory
@@ -143,6 +144,10 @@ labelImagem = tk.Label(
     height=15,
     width=30
 )
+
+#treino = ImageTk.PhotoImage( Image.open(path).resize( (255, 255), resample=3) )#
+#valiadacao = ImageTk.PhotoImage( Image.open(path).resize( (255, 255), resample=3) )#
+#teste = ImageTk.PhotoImage( Image.open(path).resize( (255, 255), resample=3) )#
 
 
 # Adicionar componentes à tela
