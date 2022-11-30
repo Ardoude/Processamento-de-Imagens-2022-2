@@ -145,9 +145,65 @@ labelImagem = tk.Label(
     width=30
 )
 
+#Etapa 1 
+
 #treino = ImageTk.PhotoImage( Image.open(path).resize( (255, 255), resample=3) )#
-#valiadacao = ImageTk.PhotoImage( Image.open(path).resize( (255, 255), resample=3) )#
 #teste = ImageTk.PhotoImage( Image.open(path).resize( (255, 255), resample=3) )#
+
+# Carrega os caminhos dos diretórios de treino, teste, validacao
+def carregaDiretorios(): 
+    
+    #caminho da pasta principal
+    global pastaPath
+    
+    #caminho das subpastas com cada opcao
+    global treinoPath
+    global testePath
+    global validacaoPath
+    
+    pastaPath = askdirectory(title='Selecione a Pasta')
+    
+    treinoPath = pastaPath+'\\'+'test'
+    testePath = pastaPath+'\\'+'train'
+    validacaoPath = pastaPath+'\\'+'val'
+    
+    # if dirPath!="":
+    #     btnTreinarBase.config(state=ACTIVE)
+
+#EfficientNetV2, XGBoost
+
+#modelo = MLPClassifier()#
+#modelo.fit(X_treino, y_treino)#
+
+#Etapa 2
+
+#Etapa 3 
+
+# modelo = MLPClassifier()
+# modelo.fit(X_treino, y_treino)
+
+# previsoesDefault = modelo.predict(X_teste)
+# cm = ConfusionMatrix(modelo)
+# cm.score(X_teste, y_teste)
+
+# print(classification_report(y_teste, previsoesDefault))
+
+#Etapa 5
+
+# Metricas
+
+
+# Acuracia
+
+# metrics.accuracy_score(y_under, y_predict)
+
+# Matriz de confusao:
+
+# metrics.confusion_matrix(y_under, y_predict)
+
+# Classification Report:( Displays the precision, recall, F1, and support scores for the mode)
+
+# print(metrics.classification_report(y_under, y_predict))
 
 
 # Adicionar componentes à tela
