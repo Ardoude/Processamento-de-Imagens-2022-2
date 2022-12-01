@@ -14,6 +14,13 @@ import numpy as np
 from skimage.feature import match_template
 from matplotlib import pyplot as plt
 
+#Bibliotecas para realizar o processo de espelhamento horizontal
+# e equalização do histograma
+import numpy as np
+from skimage import data
+import math
+#fim
+
 # Constantes
 btnHeight = 1  # Altura padrão dos botões
 btnWidth = 20  # Largura padrão dos botões
@@ -145,13 +152,10 @@ labelImagem = tk.Label(
     width=30
 )
 
-#Etapa 1 
-
-#treino = ImageTk.PhotoImage( Image.open(path).resize( (255, 255), resample=3) )#
-#teste = ImageTk.PhotoImage( Image.open(path).resize( (255, 255), resample=3) )#
+#Etapa 1 Parte 2
 
 # Carrega os caminhos dos diretórios de treino, teste, validacao
-def carregaDiretorios(): 
+def carregaDiretoriosParte2(): 
     
     #caminho da pasta principal
     global pastaPath
@@ -170,14 +174,117 @@ def carregaDiretorios():
     # if dirPath!="":
     #     btnTreinarBase.config(state=ACTIVE)
 
-#EfficientNetV2, XGBoost
+#Etapa 2 Parte 2 (N fiz o espelhamento horizontal considerar fazer)
 
-#modelo = MLPClassifier()#
-#modelo.fit(X_treino, y_treino)#
+#Iniciando o histograma, que será um objeto com 256 valores, 
+# sendo cada um deles um dos níveis de intensidade que uma 
+# imagem pode assumir, pois o domínio de intensidade de um 
+# pixel varia entre 0 (para cor preta) até 255 (para cor branca).
+def instantiate_histogram():    
+    hist_array= []
+    
+    for i in range(0,256):
+        hist_array.append(str(i))
+        hist_array.append(0)
+    
+    hist_dct = {hist_array[i]: hist_array[i + 1] for i in range(0, len(hist_array), 2)} 
+    
+    return hist_dct
+histogram = instantiate_histogram()
 
-#Etapa 2
+#Uma vez que o dicionário(histograma) foi criado, basta apenas contar quantas
+# vezes cada valor de intensidade aparece na imagem, percorrendo
+# cada um dos pixels e contabilizando o número de aparições.
+def count_intensity_values(hist, img):
+    for row in img:
+        for column in row:
+            hist[str(int(column))] = hist[str(int(column))] + 1
+     
+    return hist
+histogram = count_intensity_values(histogram, image)
 
-#Etapa 3 
+#A função plot_hist abaixo foi utilizada para exibir o histograma da imagem,
+# seja individualmente ou uma comparação lado a lado entre dois histogramas.
+def plot_hist(hist, hist2=''):
+    if hist2 != '':
+        figure, axarr = plt.subplots(1,2, figsize=(20, 10))
+        axarr[0].bar(hist.keys(), hist.values())
+        axarr[1].bar(hist2.keys(), hist2.values())
+    else:
+        plt.bar(hist.keys(), hist.values())
+        plt.xlabel("Níveis intensidade")
+        ax = plt.gca()
+        ax.axes.xaxis.set_ticks([])
+        plt.grid(True)
+        plt.show()
+        
+        
+#Uma vez com o histograma da imagem em mãos, podemos
+# dar continuidade ao desenvolvimento, sendo necessário
+# calcular agora um outro dicionário porém ao invés do número
+# de vezes que determinado valor de intensidade aparece estamos
+# interessados na probabilidade desse valor aparecer.
+#Um cálculo probabilístico é nada mais que a divisão de quantas vezes 
+# o valor apareceu pelo número total de pixels na imagem.
+def get_hist_proba(hist, n_pixels):
+    hist_proba = {}
+    for i in range(0, 256):
+        hist_proba[str(i)] = hist[str(i)] / n_pixels
+    
+    return hist_proba
+n_pixels = image.shape[0] * image.shape[1]
+hist_proba = get_hist_proba(histogram, n_pixels)
+
+#O próximo passo, ainda utilizando a estrutura de dicionário,
+# é calcularmos a probabilidade acumulada, onde para cada iteração
+# o valor do histograma é somado à probabilidade acumulada das iterações
+# anteriores. A implementação e detalhes matemáticos foram retirados do
+# livro de Gonzalez e Woods.
+def get_accumulated_proba(hist_proba): 
+    acc_proba = {}
+    sum_proba = 0
+    
+    for i in range(0, 256):
+        if i == 0:
+            pass
+        else: 
+            sum_proba += hist_proba[str(i - 1)]
+            
+        acc_proba[str(i)] = hist_proba[str(i)] + sum_proba
+        
+    return acc_proba
+accumulated_proba = get_accumulated_proba(hist_proba)
+
+#Com todas essas probabilidades podemos fazer o cálculo dos novos
+# valores de cinza da imagem, ou seja, dado um pixel na posição (x,y)
+# com nível de intensidade z, qual será seu novo valor de intensidade
+# para que o histograma resultante seja equalizado.
+#Primeiro, calculamos um novo objeto que irá mapear os respectivos valores de cinza em novos valores equalizados
+def get_new_gray_value(acc_proba):
+    new_gray_value = {}
+    
+    for i in range(0, 256):
+        new_gray_value[str(i)] = np.ceil(acc_proba[str(i)] * 255)
+        
+    return new_gray_value
+new_gray_value = get_new_gray_value(accumulated_proba)
+
+#Por fim, basta aplicar os novos valores na imagem original.
+def equalize_hist(img, new_gray_value):
+    for row in range(img.shape[0]):
+        for column in range(img.shape[1]):
+            img[row][column] = new_gray_value[str(int(img[row] [column]))]
+            
+    return img
+
+#Pronto! Todos esses métodos formam o algoritmo de equalização de histograma que desejamos.
+# Podemos aplicá-lo na imagem e conferir o resultado.
+eq_img = equalize_hist(image.copy(), new_gray_value)
+figure, axarr = plt.subplots(1,2, figsize=(20, 10))
+axarr[0].imshow(image, cmap='gray')
+axarr[1].imshow(eq_img, cmap='gray')
+
+#Etapa 3 Parte 2
 
 # modelo = MLPClassifier()
 # modelo.fit(X_treino, y_treino)
@@ -188,7 +295,14 @@ def carregaDiretorios():
 
 # print(classification_report(y_teste, previsoesDefault))
 
-#Etapa 5
+#Etapa 4 Parte 2
+
+#EfficientNetV2, XGBoost
+
+#modelo = MLPClassifier()#
+#modelo.fit(X_treino, y_treino)#
+
+#Etapa 5 Parte 2
 
 # Metricas
 
