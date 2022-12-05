@@ -18,7 +18,13 @@ from matplotlib import pyplot as plt
 from tensorflow.keras.applications.efficientnet_v2 import EfficientNetV2B0
 from tensorflow.keras.applications.efficientnet_v2 import preprocess_input, decode_predictions
 from tensorflow.keras.preprocessing import image as preProcImg
+from xgboost import XGBClassifier
+from sklearn import svm
 import random
+import time
+from sklearn import metrics
+from sklearn.metrics import confusion_matrix
+from pandas import crosstab
 
 #Bibliotecas para realizar o processo de espelhamento horizontal
 # e equalização do histograma
@@ -47,12 +53,16 @@ X_train = []
 y_train = []
 X_val = []
 y_val = []
+X_test = []
+y_test = []
 
 model = None
+modelXG = None
+modelSVM = None
 
 # Configuração da tela
 janela = tk.Tk(className= ' Trabalho Prático - Processamento de Imagens')
-janela.geometry("350x500")
+janela.geometry("350x600")
     
 # Métodos utilitários
 
@@ -73,7 +83,6 @@ def carregarImagem():
         atualizaImagem(caminhoDaImagemAberta)
         btnRecortarImagem.config(state=ACTIVE)
         btnCorrelacionarImagem.config(state=ACTIVE)
-        print(imgSelecionada)
 
 # Obtem as coordenadas de corte com base nos cliques do mouse
 def recorte(event, x, y, flags, param):
@@ -143,11 +152,6 @@ def correlacionarImagem():
 
 
 
-
-#Iniciando o histograma, que será um objeto com 256 valores, 
-# sendo cada um deles um dos níveis de intensidade que uma 
-# imagem pode assumir, pois o domínio de intensidade de um 
-# pixel varia entre 0 (para cor preta) até 255 (para cor branca).
 def instantiate_histogram():    
     hist_array= []
     
@@ -159,9 +163,6 @@ def instantiate_histogram():
     
     return hist_dct
 
-#Uma vez que o dicionário(histograma) foi criado, basta apenas contar quantas
-# vezes cada valor de intensidade aparece na imagem, percorrendo
-# cada um dos pixels e contabilizando o número de aparições.
 def count_intensity_values(hist, img):
     for row in img:
         for column in row:
@@ -169,8 +170,6 @@ def count_intensity_values(hist, img):
      
     return hist
 
-#A função plot_hist abaixo foi utilizada para exibir o histograma da imagem,
-# seja individualmente ou uma comparação lado a lado entre dois histogramas.
 def plot_hist(hist, hist2=''):
     if hist2 != '':
         figure, axarr = plt.subplots(1,2, figsize=(20, 10))
@@ -185,13 +184,6 @@ def plot_hist(hist, hist2=''):
         plt.show()
         
         
-# Uma vez com o histograma da imagem em mãos, podemos
-# dar continuidade ao desenvolvimento, sendo necessário
-# calcular agora um outro dicionário porém ao invés do número
-# de vezes que determinado valor de intensidade aparece estamos
-# interessados na probabilidade desse valor aparecer.
-# Um cálculo probabilístico é nada mais que a divisão de quantas vezes 
-# o valor apareceu pelo número total de pixels na imagem.
 def get_hist_proba(hist, n_pixels):
     hist_proba = {}
     for i in range(0, 256):
@@ -199,11 +191,6 @@ def get_hist_proba(hist, n_pixels):
     
     return hist_proba
 
-#O próximo passo, ainda utilizando a estrutura de dicionário,
-# é calcularmos a probabilidade acumulada, onde para cada iteração
-# o valor do histograma é somado à probabilidade acumulada das iterações
-# anteriores. A implementação e detalhes matemáticos foram retirados do
-# livro de Gonzalez e Woods.
 def get_accumulated_proba(hist_proba): 
     acc_proba = {}
     sum_proba = 0
@@ -218,11 +205,6 @@ def get_accumulated_proba(hist_proba):
         
     return acc_proba
 
-#Com todas essas probabilidades podemos fazer o cálculo dos novos
-# valores de cinza da imagem, ou seja, dado um pixel na posição (x,y)
-# com nível de intensidade z, qual será seu novo valor de intensidade
-# para que o histograma resultante seja equalizado.
-#Primeiro, calculamos um novo objeto que irá mapear os respectivos valores de cinza em novos valores equalizados
 def get_new_gray_value(acc_proba):
     new_gray_value = {}
     
@@ -231,13 +213,13 @@ def get_new_gray_value(acc_proba):
         
     return new_gray_value
 
-#Por fim, basta aplicar os novos valores na imagem original.
 def equalize_hist(img, new_gray_value):
     for row in range(img.shape[0]):
         for column in range(img.shape[1]):
             img[row][column] = new_gray_value[str(int(img[row] [column]))]
             
     return img
+
 
 # Aumenta a quantidade de imagens do dataset
 def aumentarDados(image):
@@ -251,25 +233,128 @@ def aumentarDados(image):
 
 
 
+def classificarSVM():
+    img_path = caminhoDaImagemAberta
+    img = cv2.imread(img_path, cv2.IMREAD_GRAYSCALE)
+    img = tf.expand_dims(tf.expand_dims(img,2), 0)
+
+    classificacao = modelSVM.predict(img)
+
+    # print('Resultado:', decode_predictions(classificacao, top=3)[0])
+    labelClassificacao.config(text = classificacao)
+
 def classificarRN():
     img_path = caminhoDaImagemAberta
     img = cv2.imread(img_path, cv2.IMREAD_GRAYSCALE)
-
+    img = tf.expand_dims(tf.expand_dims(img,2), 0)
     classificacao = model.predict(img)
 
     # print('Resultado:', decode_predictions(classificacao, top=3)[0])
     labelClassificacao.config(text = classificacao)
 
+def classificarXGBoost():
+    img_path = caminhoDaImagemAberta
+    img = cv2.imread(img_path, cv2.IMREAD_GRAYSCALE)
+    img = tf.expand_dims(tf.expand_dims(img,2), 0)
+
+    classificacao = modelXG.predict(img)
+
+    # print('Resultado:', decode_predictions(classificacao, top=3)[0])
+    labelClassificacao.config(text = classificacao)
+
+def obterMetricas(y_pred, t2, tClassificacao):
+    accuracy = metrics.accuracy_score(y_test, y_pred)
+    confMatrix = confusion_matrix(y_test, y_pred)
+
+    FP = confMatrix.sum(axis=0) - np.diag(confMatrix)
+    FN = confMatrix.sum(axis=1) - np.diag(confMatrix)
+    TP = np.diag(confMatrix)
+    TN = confMatrix.sum() - (FP + FN + TP)
+    TPR = TP / (TP + FN)  # Sensibilidade ou hit rate
+    TNR = TN / (TN + FP)  # Specificidade
+    
+    sensibilidade = round(TPR.mean(), 2)
+    especificidade = round(TNR.mean(), 2)
+
+    # Nova janela com dados do treino
+    novaJanela = tk.Toplevel(janela)
+    novaJanela.title("Informações de Treino")
+    novaJanela.geometry("400x500")
+    tk.Label( novaJanela, text="Accuracy: " + str(accuracy)).pack()
+    tk.Label( novaJanela, text="Sensibilidade: " + str(sensibilidade)).pack()
+    tk.Label( novaJanela, text="Especificidade: " + str(especificidade)).pack()
+    tk.Label( novaJanela, text="Tempo de treino: " + str(round(t2, 4)) + "s").pack()
+    tk.Label( novaJanela, text="Tempo gasto classificando: " + str(round(tClassificacao, 4)) + "s").pack()
+    tk.Label( novaJanela, text="Matriz de Confusão\n" + str(crosstab(y_train, y_val, rownames=['Real'], colnames=['Predito'], margins=True))).pack()
+
+    novaJanela.mainloop()
+
+def treinarSVM():
+    global modelSVM
+    modelSVM = svm.SVC(kernel='linear', C=1, gamma=1) # Classificador
+    
+    # Treinar
+    t1 = time.time()
+    modelSVM.fit(X_train, y_train)
+    t2 = time.time() - tInicial
+
+    # Testar resto da base
+    tInicial = time.time()
+    y_pred = modelSVM.predict(X_test)
+    tClassificacao = time.time() - tInicial
+
+    btnClassificarSVM.config(state=ACTIVE) # Habilitar classificação
+
+    # Obter dados
+    obterMetricas(y_pred, t2, tClassificacao)
+
+
+def treinarXGBoost():
+    global modelXG
+    modelXG = XGBClassifier(max_depth=4, booster= "dart", learning_rate= 0.25)
+    
+    t1 = time.time()
+    modelXG.fit(X_train, y_train)
+    t2 = time.time() - t1
+
+    # Testar resto da base
+    tInicial = time.time()
+    y_pred = modelXG.predict(X_test)
+    tClassificacao = time.time() - tInicial
+
+    btnClassificarXG.config(state=ACTIVE) # Habilitar classificação
+
+    # Obter dados
+    obterMetricas(y_pred, t2, tClassificacao)
+
+
+
 def treinarRede():
     global model
     model = EfficientNetV2B0(weights = None, classes = 1, input_shape = (224, 224, 1))
-    model.compile(loss=tf.keras.losses.BinaryCrossentropy() ,optimizer= "adam", metrics=['accuracy'])
+    
+    model.compile(loss=tf.keras.losses.BinaryCrossentropy(), optimizer= "adam", metrics=['accuracy'])
+
+    # Treinar
+    t1 = time.time()
     model.fit(X_train, y_train, batch_size=5, epochs = 3, validation_split=0.1)#validation_data = (X_val, y_val))
+    t2 = time.time() - t1
+
+    # Testar resto da base
+    tInicial = time.time()
+    y_pred = model.predict(X_test)
+    tClassificacao = time.time() - tInicial
 
     btnClassificarRN.config(state=ACTIVE) # Habilitar classificação
 
+    # Obter dados
+    obterMetricas(y_pred, t2, tClassificacao)
+    
+
+    
+
 def carregarDataset():
-    global trainingData, DATADIR, X_train, y_train, X_val, y_val
+    global trainingData, DATADIR, X_train, y_train, X_val, y_val, X_test, y_test
 
     # Diretorio de Treino
     DATADIR = askdirectory(title='Diretório de Treino')
@@ -302,6 +387,24 @@ def carregarDataset():
         X_val.append(features)
         y_val.append(label)
 
+    
+    # Diretório de Teste
+    testData = []
+    DATADIR = askdirectory(title='Diretório de Teste')
+    for categoria in CATEGORIAS:
+        path = os.path.join(DATADIR, categoria)
+        classNum = CATEGORIAS.index(categoria)
+        for img in os.listdir(path):
+            img_array = cv2.imread(os.path.join(path, img), cv2.IMREAD_GRAYSCALE)
+            testData.append([img_array, classNum])
+
+    for features, label in testData:
+        X_test.append(features)
+        y_test.append(label)
+
+
+    X_test = np.array(X_test).reshape(-1, tamanhoDaImagem, tamanhoDaImagem, 1)
+    y_test = np.array(y_test)
 
     X_train = np.array(X_train).reshape(-1, tamanhoDaImagem, tamanhoDaImagem, 1)
     y_train = np.array(y_train)
@@ -310,44 +413,9 @@ def carregarDataset():
     y_val = np.array(y_val)
 
     btnTreinarRede.config(state=ACTIVE) # Habilitar treino
+    btnTreinarXG.config(state=ACTIVE) # Habilitar treino
+    btnTreinarSVM.config(state=ACTIVE) # Habilitar treino
 
-
-
-
-#Etapa 3 Parte 2
-
-# modelo = MLPClassifier()
-# modelo.fit(X_treino, y_treino)
-
-# previsoesDefault = modelo.predict(X_teste)
-# cm = ConfusionMatrix(modelo)
-# cm.score(X_teste, y_teste)
-
-# print(classification_report(y_teste, previsoesDefault))
-
-#Etapa 4 Parte 2
-
-#EfficientNetV2, XGBoost
-
-#modelo = MLPClassifier()#
-#modelo.fit(X_treino, y_treino)#
-
-#Etapa 5 Parte 2
-
-# Metricas
-
-
-# Acuracia
-
-# metrics.accuracy_score(y_under, y_predict)
-
-# Matriz de confusao:
-
-# metrics.confusion_matrix(y_under, y_predict)
-
-# Classification Report:( Displays the precision, recall, F1, and support scores for the mode)
-
-# print(metrics.classification_report(y_under, y_predict))
 
 
 # Criação de componentes
@@ -389,12 +457,40 @@ btnTreinarRede = tk.Button(
     state= DISABLED,
     command= treinarRede
 )
+btnTreinarXG = tk.Button(
+    text="Treinar XGBoost",
+    height= btnHeight,
+    width= btnWidth,
+    state= DISABLED,
+    command= treinarXGBoost
+)
+btnTreinarSVM = tk.Button(
+    text="Treinar SVM",
+    height= btnHeight,
+    width= btnWidth,
+    state= DISABLED,
+    command= treinarSVM
+)
 btnClassificarRN = tk.Button(
     text="Classificar (Rede Neural)",
     height= btnHeight,
     width= btnWidth,
     state= DISABLED,
     command= classificarRN
+)
+btnClassificarXG = tk.Button(
+    text="Classificar (XGBoost)",
+    height= btnHeight,
+    width= btnWidth,
+    state= DISABLED,
+    command= classificarXGBoost
+)
+btnClassificarSVM = tk.Button(
+    text="Classificar (SVM)",
+    height= btnHeight,
+    width= btnWidth,
+    state= DISABLED,
+    command= classificarSVM
 )
 labelImagem = tk.Label(
     image=imgSelecionada,
@@ -415,7 +511,11 @@ btnRecortarImagem.pack()
 btnCorrelacionarImagem.pack()
 btnCarregarDataset.pack()
 btnTreinarRede.pack()
+btnTreinarXG.pack()
+btnTreinarSVM.pack()
 btnClassificarRN.pack()
+btnClassificarXG.pack()
+btnClassificarSVM.pack()
 labelImagem.pack()
 labelClassificacao.pack()
 janela.mainloop()
